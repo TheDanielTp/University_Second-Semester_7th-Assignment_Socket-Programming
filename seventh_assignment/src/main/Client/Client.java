@@ -12,6 +12,8 @@ public class Client
     private final int serverPort;
     private final BufferedReader consoleInput;
 
+    private String username;
+
     private static final String DOWNLOAD_DIRECTORY = "D:\\Java\\7th Assignment\\University_Second-Semester_7th-Assignment_Socket-Programming";
 
     public Client(String serverAddress, int serverPort)
@@ -25,11 +27,18 @@ public class Client
     {
         try
         {
+            // Prompt for username
+            System.out.print("Enter your username: ");
+            username = consoleInput.readLine();
+
             socket = new Socket(serverAddress, serverPort);
             input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             output = new PrintWriter(socket.getOutputStream(), true);
 
             System.out.println("Connected to the server.");
+
+            // Send username to server
+            output.println(username);
 
             // Choose between chat or file download
             System.out.println("Enter '1' for group chat or '2' for file download:");
@@ -62,7 +71,7 @@ public class Client
     {
         try
         {
-            output.println("Joined Chat");
+            output.println(username + " joined the chat");
             new Thread(new ServerListener()).start();
 
             String message;
@@ -73,7 +82,7 @@ public class Client
                     start();
                     return;
                 }
-                output.println(message);
+                output.println(message);  // Remove the prefix here, as the server will handle it
             }
         }
         catch (IOException e)
