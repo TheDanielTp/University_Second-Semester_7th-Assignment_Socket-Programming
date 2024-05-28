@@ -101,6 +101,8 @@ class ClientHandler implements Runnable
     private PrintWriter    output;
     private BufferedReader input;
 
+    private static final String FILE_DIRECTORY = "D:\\Java\\7th Assignment\\University_Second-Semester_7th-Assignment_Socket-Programming\\seventh_assignment\\src\\main\\Server\\data";
+
     public ClientHandler (Socket socket, Server server)
     {
         this.socket = socket;
@@ -127,7 +129,7 @@ class ClientHandler implements Runnable
             {
                 if (clientMessage.startsWith ("DOWNLOAD_FILE:"))
                 {
-                    String filename = clientMessage.split (":")[1];
+                    String filename = clientMessage.split (":", 2)[1].trim ();
                     sendFile (filename);
                 }
                 else
@@ -155,7 +157,8 @@ class ClientHandler implements Runnable
 
     private void sendFile (String filename)
     {
-        File file = new File (filename);
+        File file = new File (FILE_DIRECTORY, filename);
+
         if (! file.exists ())
         {
             output.println ("ERROR: File not found");
@@ -165,7 +168,6 @@ class ClientHandler implements Runnable
         try (FileInputStream fileInput = new FileInputStream (file);
              BufferedOutputStream socketOutput = new BufferedOutputStream (socket.getOutputStream ()))
         {
-
             byte[] buffer = new byte[4096];
             int    bytesRead;
             while ((bytesRead = fileInput.read (buffer)) != - 1)
@@ -173,10 +175,12 @@ class ClientHandler implements Runnable
                 socketOutput.write (buffer, 0, bytesRead);
             }
             socketOutput.flush ();
+            output.println ("File download complete");
         }
         catch (IOException e)
         {
-            e.printStackTrace ();
+            System.out.println (e.getMessage ());
+            output.println ("ERROR: Failed to send file");
         }
     }
 
@@ -191,7 +195,7 @@ class ClientHandler implements Runnable
         }
         catch (IOException e)
         {
-            e.printStackTrace ();
+            System.out.println (e.getMessage ());
         }
     }
 }
