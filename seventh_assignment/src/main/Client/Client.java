@@ -82,6 +82,8 @@ public class Client
                     start();
                     return;
                 }
+                // Print the sent message to the client's console
+                System.out.println("You: " + message);
                 output.println(message);  // Remove the prefix here, as the server will handle it
             }
         }
