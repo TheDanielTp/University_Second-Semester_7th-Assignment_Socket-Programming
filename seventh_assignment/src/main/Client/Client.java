@@ -57,13 +57,32 @@ public class Client
             }
             else
             {
-                System.out.println("Downloading File...");
+                System.out.println("Requesting file list...");
+                requestFileList();
+                System.out.println("Enter the index of the file to download:");
+                String fileIndex = consoleInput.readLine();
+                output.println("DOWNLOAD_FILE:" + fileIndex);
                 startFileDownload();
             }
         }
         catch (IOException e)
         {
             System.out.println(e.getMessage());
+        }
+    }
+
+    private void requestFileList() throws IOException
+    {
+        output.println("REQUEST_FILE_LIST");
+
+        String fileListLine;
+        while ((fileListLine = input.readLine()) != null)
+        {
+            if (fileListLine.equals("END_OF_LIST"))
+            {
+                break;
+            }
+            System.out.println(fileListLine);
         }
     }
 
@@ -93,50 +112,34 @@ public class Client
         }
     }
 
-    private void startFileDownload()
-    {
-        try
-        {
-            System.out.println("Enter the filename to download:");
-            String filename = consoleInput.readLine();
-            output.println("DOWNLOAD_FILE:" + filename);
-
+    private void startFileDownload() {
+        try {
             String serverResponse = input.readLine();
-            if (serverResponse.equals("ERROR: File not found"))
-            {
+            if (serverResponse.startsWith("START_FILE_TRANSFER:")) {
+                String fileName = serverResponse.split(":")[1];
+                receiveFile(fileName);
+            } else if (serverResponse.equals("ERROR: File not found")) {
                 System.out.println("Server: " + serverResponse);
+            } else {
+                System.out.println("Unexpected server response: " + serverResponse);
             }
-            else
-            {
-                receiveFile(filename);
-            }
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private void receiveFile(String filename)
-    {
-        File file = new File(DOWNLOAD_DIRECTORY, filename);
-
-        try (FileOutputStream fileOutput = new FileOutputStream(file);
-             InputStream socketInput = socket.getInputStream())
-        {
+    private void receiveFile(String fileName) {
+        try (FileOutputStream fileOutput = new FileOutputStream(DOWNLOAD_DIRECTORY + File.separator + fileName);
+             InputStream socketInput = socket.getInputStream()) {
             byte[] buffer = new byte[4096];
             int bytesRead;
-            while ((bytesRead = socketInput.read(buffer)) != -1)
-            {
+            while ((bytesRead = socketInput.read(buffer)) != -1) {
                 fileOutput.write(buffer, 0, bytesRead);
             }
-
-            System.out.println("File downloaded: " + filename);
-        }
-        catch (IOException e)
-        {
+            System.out.println("File downloaded successfully.");
+        } catch (IOException e) {
             e.printStackTrace();
-            System.out.println("Failed to download file: " + filename);
+            System.out.println("Failed to download file.");
         }
     }
 

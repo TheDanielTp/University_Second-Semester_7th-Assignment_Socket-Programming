@@ -73,6 +73,7 @@ public class Server
         {
             System.out.println("No arguments given.");
 
+            System.out.print("Enter server port: ");
             String portString = scanner.nextLine();
 
             int port = Integer.parseInt(portString);
@@ -111,10 +112,8 @@ class ClientHandler implements Runnable
     }
 
     @Override
-    public void run()
-    {
-        try
-        {
+    public void run() {
+        try {
             input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             output = new PrintWriter(socket.getOutputStream(), true);
 
@@ -123,34 +122,76 @@ class ClientHandler implements Runnable
 
             // Send chat history to the new client
             List<String> chatHistory = server.getChatHistory();
-            for (String message : chatHistory)
-            {
+            for (String message : chatHistory) {
                 output.println(message);
             }
 
             String clientMessage;
-            while ((clientMessage = input.readLine()) != null)
-            {
-                if (clientMessage.startsWith("DOWNLOAD_FILE:"))
-                {
-                    String filename = clientMessage.split(":", 2)[1].trim();
-                    sendFile(filename);
-                }
-                else
-                {
+            while ((clientMessage = input.readLine()) != null) {
+                if (clientMessage.equals("REQUEST_FILE_LIST")) {
+                    sendFileList();
+                } else if (clientMessage.startsWith("DOWNLOAD_FILE:")) {
+                    int fileIndex = Integer.parseInt(clientMessage.split(":")[1].trim()) - 1;
+                    sendFile(fileIndex);
+                } else {
                     String message = username + ": " + clientMessage;
                     System.out.println(message);
                     server.broadcastMessage(message, this);
                 }
             }
-        }
-        catch (IOException e)
-        {
+        } catch (SocketException e) {
+            if ("Socket closed".equals(e.getMessage())) {
+                System.out.println("Client disconnected: " + username);
+            } else {
+                e.printStackTrace();
+            }
+        } catch (IOException e) {
             e.printStackTrace();
-        }
-        finally
-        {
+        } finally {
             close();
+        }
+    }
+
+    private void sendFileList()
+    {
+        File directory = new File(FILE_DIRECTORY);
+        File[] files = directory.listFiles();
+        if (files != null)
+        {
+            for (int i = 0; i < files.length; i++)
+            {
+                output.println((i + 1) + ": " + files[i].getName());
+            }
+            output.println("END_OF_LIST");
+        }
+        else
+        {
+            output.println("ERROR: No files available");
+        }
+    }
+
+    private void sendFile(int fileIndex) {
+        File directory = new File(FILE_DIRECTORY);
+        File[] files = directory.listFiles();
+        if (files != null && fileIndex >= 0 && fileIndex < files.length) {
+            File file = files[fileIndex];
+            try (FileInputStream fileInput = new FileInputStream(file);
+                 BufferedOutputStream socketOutput = new BufferedOutputStream(socket.getOutputStream())) {
+                // Send a header to indicate the start of file transfer
+                output.println("START_FILE_TRANSFER:" + file.getName());
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = fileInput.read(buffer)) != -1) {
+                    socketOutput.write(buffer, 0, bytesRead);
+                }
+                socketOutput.flush();
+                output.println("File download complete");
+            } catch (IOException e) {
+                e.printStackTrace();
+                output.println("ERROR: Failed to send file");
+            }
+        } else {
+            output.println("ERROR: File not found");
         }
     }
 
@@ -159,45 +200,13 @@ class ClientHandler implements Runnable
         output.println(message);
     }
 
-    private void sendFile(String filename)
-    {
-        File file = new File(FILE_DIRECTORY, filename);
-        if (!file.exists())
-        {
-            output.println("ERROR: File not found");
-            return;
-        }
-
-        try (FileInputStream fileInput = new FileInputStream(file);
-             BufferedOutputStream socketOutput = new BufferedOutputStream(socket.getOutputStream()))
-        {
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            while ((bytesRead = fileInput.read(buffer)) != -1)
-            {
-                socketOutput.write(buffer, 0, bytesRead);
-            }
-            socketOutput.flush();
-            output.println("File download complete");
-        }
-        catch (IOException e)
-        {
-            e.printStackTrace();
-            output.println("ERROR: Failed to send file");
-        }
-    }
-
-    private void close()
-    {
-        try
-        {
-            input.close();
-            output.close();
-            socket.close();
+    private void close() {
+        try {
+            if (input != null) input.close();
+            if (output != null) output.close();
+            if (socket != null && !socket.isClosed()) socket.close();
             server.removeClient(this);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
